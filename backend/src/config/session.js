@@ -17,8 +17,8 @@ export default session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        htttpOnly: true,
-        secure: isProduction,
+        httpOnly: true,
+        secure: false,
         sameSite: 'lax',
         maxAge: 1000 * 60 * 60 * 7,
     }
