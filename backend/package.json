@@ -1,0 +1,12 @@
+{
+  "name": "Team Task Manager",
+  "version": "1.0.0",
+  "main": "server.js",
+  "type": "module",
+  
+  "dependencies": {
+    "dotenv": "^18.0.8",
+    "express": "^5.3.0",
+    "pg": "^8.23.1"
+  }
+}
