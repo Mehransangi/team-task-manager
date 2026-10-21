@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node --watch server.js"
   },
-  "dependencies": 
-  {
+  "dependencies": {
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "concurrently": "^10.0.6",
