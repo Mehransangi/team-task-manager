@@ -1,5 +1,5 @@
 node_modules/
-
+cookies.txt
 .env
 .env.local
 .env.*.local
