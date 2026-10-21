@@ -109,6 +109,10 @@ export const addTeamMember = async (req, res) => {
             [req.params.id, user_id, role || 'member']
         )
 
+        if (existing.rows.length > 0) {
+            return res.status(409).json({ message: 'Member already added to this team' });
+        }
+
         return res.status(201).json(result.rows[0])
     } catch (error) {
         res.status(500).json({ message: error.message })
