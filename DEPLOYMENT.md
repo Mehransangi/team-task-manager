@@ -4,6 +4,7 @@ This application is deployed using **Render** for hosting and **Neon** for the P
 
 The project runs as a single Docker service. Express serves the backend API and the built React frontend from the same origin.
 
+- **Live application:** https://team-task-manager-els6.onrender.com
 - **Hosting:** Render
 - **Database:** Neon (serverless PostgreSQL)
 - **Deployment method:** Docker
@@ -12,7 +13,7 @@ The project runs as a single Docker service. Express serves the backend API and 
 
 ## 1. Prerequisites
 
-Before deploying, make sure you have:
+For a new deployment, make sure you have:
 
 - A GitHub repository containing the application.
 - A Neon PostgreSQL database.
@@ -53,15 +54,11 @@ If the schema has not already been applied, initialize it using the project's da
 
 This applies `backend/db/schema.sql` to the configured database. Run the initialization only when needed, and avoid modifying or resetting an existing database containing data.
 
-## 4. Create the Render Service
+## 4. Render Service Configuration
 
-1. Sign in to Render and open your project.
-2. Select **Create new service**, then choose **Web Service** if prompted.
-3. Connect the GitHub repository containing this project.
-4. Select the branch you want to deploy.
-5. Configure the service to build using Docker.
+The application is deployed as a Render Web Service using Docker.
 
-Use the following settings:
+The service configuration is:
 
 | Setting | Value |
 | --- | --- |
@@ -73,9 +70,9 @@ Use the following settings:
 
 The root-level Dockerfile builds the frontend and serves it through the Express backend, so separate frontend and backend services are not required.
 
-## 5. Configure Environment Variables
+## 5. Environment Variables
 
-In the Render service's environment settings, add the following variables:
+Configure the following environment variables in the Render service settings:
 
 | Variable | Value |
 | --- | --- |
@@ -94,46 +91,20 @@ Copy the generated value into Render as `SESSION_SECRET`. Do not commit it to th
 
 Keep `DATABASE_SSL=true` for Neon connections that require SSL. The application defaults to enabling database SSL unless this variable is explicitly set to `false`.
 
-## 6. Deploy the Application
-
-1. Save the service configuration and environment variables.
-2. Start the deployment from Render.
-3. Review the build and runtime logs for errors.
-4. Once the deployment succeeds, open the service URL provided by Render.
+## 6. Deployment and Updates
 
 Render builds the Docker image using the repository's Dockerfile, so Docker does not need to be installed on your local machine.
 
+When application code changes, push the changes to the branch configured in Render. If automatic deployments are enabled, Render will deploy the new version automatically.
+
+After a deployment, review the build and runtime logs for errors.
+
 ## 7. Verify the Deployment
 
-Open the following endpoint using your deployed Render URL:
+The live application is available at:
 
-`https://YOUR-RENDER-URL/api/health`
+https://team-task-manager-els6.onrender.com
 
-A successful response should return:
+The API health-check endpoint is:
 
-```json
-{
-  "status": "ok"
-}
-```
-
-Then open the main application and test registration, login, team creation, task management, and session persistence.
-
-## Troubleshooting
-
-| Problem | What to check |
-| --- | --- |
-| The service fails to start | Review the Render runtime logs and confirm the required environment variables are set. |
-| Database connection fails | Verify `DATABASE_URL`, database credentials, network access, and SSL configuration. |
-| `SESSION_SECRET must be set` | Add `SESSION_SECRET` to the Render environment settings. |
-| `relation "users" does not exist` | Apply the database schema using `npm run db:init`. |
-| Login does not persist | Confirm the app is running with `NODE_ENV=production` over HTTPS and that the PostgreSQL session store is working. |
-| The health endpoint fails | Check the deployment logs and confirm the service is listening on the configured port. |
-
-## Security Notes
-
-- Never commit database credentials or production secrets to GitHub.
-- Keep `.env` files out of version control.
-- Use HTTPS for the deployed application.
-- Use a strong, unique session secret.
-- Back up important database data before making schema changes.
+https://team-task-manager-els
