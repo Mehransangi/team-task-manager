@@ -2,7 +2,7 @@
 
 A full-stack app for managing teams, members and tasks, with session-based authentication.
 
-**Live demo:** _add your Cloud Run URL here after deploying_
+**Live demo:** _Add your Render URL after deployment_
 **Repository:** https://github.com/Mehransangi/team-task-manager
 
 ## Features
@@ -23,8 +23,8 @@ A full-stack app for managing teams, members and tasks, with session-based authe
 | Frontend | React 19, Vite, Tailwind CSS, React Router, Axios |
 | Backend | Node.js, Express 5, express-validator, helmet, express-rate-limit |
 | Auth | Passport.js (local), express-session, connect-pg-simple, bcrypt |
-| Database | PostgreSQL (Cloud SQL on GCP; Neon also supported) |
-| Hosting | Google Cloud Run (single container serving API + frontend) |
+| Database | Neon (serverless PostgreSQL) |
+| Hosting | Render (single Docker service serving the API and frontend) |
 
 ## Project structure
 
@@ -126,4 +126,15 @@ cd frontend && npm test     # date/format helpers and form validators
 
 ## Deployment
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for the Cloud Run + Cloud SQL steps.
+## Deployment
+
+The application is deployed on Render as a single Docker service that serves both the React frontend and Express backend.
+
+The application uses an existing hosted PostgreSQL database. Deployment configuration and environment variables are documented in [DEPLOYMENT.md](DEPLOYMENT.md).
+
+### Required environment variables
+
+- `NODE_ENV=production`
+- `DATABASE_URL` — connection string for the existing PostgreSQL database
+- `SESSION_SECRET` — a strong, randomly generated secret
+- `DATABASE_SSL=true` — when required by the PostgreSQL provider
