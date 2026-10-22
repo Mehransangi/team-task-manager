@@ -1,55 +1,57 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import api from '../services/api';
+import { authApi } from '../services/authApi';
 
-const AuthContext = createContext(null)
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-    const [user, setUser] = useState(null)
-    const [loading, setLoading] = useState(true)
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
 
     const fetchUser = async () => {
         try {
-            const response = await api.get('/api/auth/me')
-            setUser(response.data.user)
+            const response = await authApi.me();
+            setUser(response.data.user);
         } catch (error) {
-            setUser(null)
+            setUser(null);
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
     useEffect(() => {
-        fetchUser()
-    }, [])
+        fetchUser();
+    }, []);
 
     const login = async (credentials) => {
-        await api.post('/api/auth/login', credentials)
-        await fetchUser()
-    }
+        await authApi.login(credentials);
+        await fetchUser();
+    };
 
     const register = async (credentials) => {
-        await api.post('/api/auth/register', credentials)
-    }
+        await authApi.register(credentials);
+    };
 
     const logout = async () => {
         try {
-            await api.post('/api/auth/logout')
+            await authApi.logout();
         } finally {
-            setUser(null)
+            setUser(null);
         }
-    }
+    };
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, register, logout, fetchUser }}>{children}</AuthContext.Provider>
-    )
+        <AuthContext.Provider value={{ user, loading, login, register, logout, fetchUser }}>
+            {children}
+        </AuthContext.Provider>
+    );
 }
 
 export function useAuth() {
-    const context = useContext(AuthContext)
+    const context = useContext(AuthContext);
 
-    if(!context) {
-        throw new Error('useAuth must be used inside AuthProvider')
+    if (!context) {
+        throw new Error('useAuth must be used inside AuthProvider');
     }
 
-    return context
+    return context;
 }

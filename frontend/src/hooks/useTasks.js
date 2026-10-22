@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
 
-
-export function useTask() {
+export function useTasks() {
     const [tasks, setTasks] = useState([])
     const [loading, setLoading] = useState(true)
 
