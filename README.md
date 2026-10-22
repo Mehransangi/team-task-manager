@@ -2,7 +2,8 @@
 
 A full-stack app for managing teams, members and tasks, with session-based authentication.
 
-**Live demo:** _Add your Render URL after deployment_
+**Live demo:** https://team-task-manager-els6.onrender.com
+
 **Repository:** https://github.com/Mehransangi/team-task-manager
 
 ## Features
@@ -48,12 +49,12 @@ frontend/
     pages/               Login, Register, Dashboard, Teams, Team details, Tasks
     services/ utils/     API client and helpers
 Dockerfile               production image (builds the frontend, serves it from Express)
-DEPLOYMENT.md            step-by-step Google Cloud deployment
+DEPLOYMENT.md            step-by-step Render and Neon deployment
 ```
 
 ## Run it locally
 
-Requirements: Node.js 20+ and a PostgreSQL database (local, Cloud SQL or Neon).
+Requirements: Node.js 20+ and a PostgreSQL database (local or Neon).
 
 ```bash
 # 1. Backend
@@ -126,15 +127,17 @@ cd frontend && npm test     # date/format helpers and form validators
 
 ## Deployment
 
-## Deployment
+The application is deployed on [Render](https://render.com/) using Docker, with [Neon](https://neon.tech/) providing the PostgreSQL database.
 
-The application is deployed on Render as a single Docker service that serves both the React frontend and Express backend.
+The single Docker service serves both the React frontend and Express backend.
 
-The application uses an existing hosted PostgreSQL database. Deployment configuration and environment variables are documented in [DEPLOYMENT.md](DEPLOYMENT.md).
+**Live application:** https://team-task-manager-els6.onrender.com
 
 ### Required environment variables
 
 - `NODE_ENV=production`
-- `DATABASE_URL` — connection string for the existing PostgreSQL database
+- `DATABASE_URL` — Neon PostgreSQL connection string
+- `DATABASE_SSL=true` — enables database SSL
 - `SESSION_SECRET` — a strong, randomly generated secret
-- `DATABASE_SSL=true` — when required by the PostgreSQL provider
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for setup instructions, database initialization, environment configuration, and deployment verification.
