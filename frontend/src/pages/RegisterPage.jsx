@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthForm from '../components/AuthForm';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../utils/validators';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -28,9 +29,9 @@ const RegisterPage = () => {
 
     try {
       await register(formData);
-      navigate('/login');
+      navigate('/login', { state: { registered: true } });
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      setError(getErrorMessage(err, 'Registration failed. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -53,10 +54,13 @@ const RegisterPage = () => {
       }
     >
       <div>
-        <label className="mb-2 block text-sm text-slate-300">Full name</label>
+        <label htmlFor="register-name" className="mb-2 block text-sm text-slate-300">Full name</label>
         <input
+          id="register-name"
           type="text"
           name="name"
+          autoComplete="name"
+          required
           value={formData.name}
           onChange={handleChange}
           className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-violet-500"
@@ -65,10 +69,12 @@ const RegisterPage = () => {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm text-slate-300">Email</label>
+        <label htmlFor="register-email" className="mb-2 block text-sm text-slate-300">Email</label>
         <input
+          id="register-email"
           type="email"
           name="email"
+          required
           value={formData.email}
           onChange={handleChange}
           className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-violet-500"
@@ -78,10 +84,14 @@ const RegisterPage = () => {
       </div>
 
       <div>
-        <label className="mb-2 block text-sm text-slate-300">Password</label>
+        <label htmlFor="register-password" className="mb-2 block text-sm text-slate-300">Password</label>
         <input
+          id="register-password"
           type="password"
           name="password"
+          minLength={8}
+          maxLength={72}
+          required
           value={formData.password}
           onChange={handleChange}
           className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-violet-500"

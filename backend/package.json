@@ -1,15 +1,20 @@
 {
-  "name": "Team Task Manager",
+  "name": "team-task-manager-backend",
   "version": "1.0.0",
-  "main": "server.js",
+  "private": true,
   "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "start": "node --watch server.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:init": "node scripts/initDb.js",
+    "test": "node --test"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "bcryptjs": "^3.0.3",
-    "concurrently": "^10.0.6",
     "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.6",
     "dotenv": "^18.0.8",
