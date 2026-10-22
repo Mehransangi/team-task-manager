@@ -5,7 +5,7 @@ const TeamCard = ({ team, onEdit, onDelete }) => {
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-violet-400">Team</p>
           <h3 className="mt-2 text-xl font-semibold text-white">{team.name}</h3>
@@ -30,7 +30,7 @@ const TeamCard = ({ team, onEdit, onDelete }) => {
           {canManage && onDelete && (
             <button
               type="button"
-              onClick={() => onDelete(team.id)}
+              onClick={() => onDelete(team)}
               className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200 transition hover:bg-red-500/20"
             >
               Delete
@@ -41,6 +41,12 @@ const TeamCard = ({ team, onEdit, onDelete }) => {
 
       <p className="mt-4 text-sm text-slate-400">
         {team.description || 'No description provided for this team.'}
+      </p>
+
+      <p className="mt-3 text-xs text-slate-500">
+        {team.members?.length ?? 0} member{team.members?.length === 1 ? '' : 's'}
+        {' · '}
+        You are {canManage ? 'the owner' : 'a member'}
       </p>
     </div>
   );

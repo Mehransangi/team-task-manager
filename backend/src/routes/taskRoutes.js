@@ -1,14 +1,28 @@
-import express from 'express'
-import requireAuth from '../middleware/requireAuth.js'
-import { createTask, deleteTask, getTaskById, getTasks, updateTask } from '../controllers/taskController.js'
+import express from 'express';
+import requireAuth from '../middleware/requireAuth.js';
+import validate from '../middleware/validate.js';
+import {
+  createTaskRules,
+  listTaskRules,
+  taskIdRule,
+  updateTaskRules,
+} from '../validators/taskValidator.js';
+import {
+  createTask,
+  deleteTask,
+  getTaskById,
+  getTasks,
+  updateTask,
+} from '../controllers/taskController.js';
 
-const router = express.Router()
-router.use(requireAuth)
+const router = express.Router();
 
-router.post('/', createTask)
-router.get('/', getTasks)
-router.get('/:id', getTaskById)
-router.put('/:id', updateTask)
-router.delete('/:id', deleteTask)
+router.use(requireAuth);
 
-export default router
+router.post('/', createTaskRules, validate, createTask);
+router.get('/', listTaskRules, validate, getTasks);
+router.get('/:id', taskIdRule, validate, getTaskById);
+router.put('/:id', updateTaskRules, validate, updateTask);
+router.delete('/:id', taskIdRule, validate, deleteTask);
+
+export default router;

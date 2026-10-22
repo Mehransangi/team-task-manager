@@ -1,23 +1,27 @@
-import { useEffect, useState } from 'react'
-import api from '../services/api'
+import { useCallback, useEffect, useState } from 'react';
+import { teamApi } from '../services/teamApi';
+import { getErrorMessage } from '../utils/validators';
 
 export function useTeams() {
-    const [teams, setTeams] = useState([])
-    const [loading, setLoading] = useState(true)
+  const [teams, setTeams] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-    const fetchTeams = async () => {
-        try {
-            const response = await api.get('/api/teams')
-            setTeams(response.data)
-        } catch (error) {
-            console.log('Error in loading teams: ', error)
-        } finally {
-            setLoading(false)
-        }
+  const fetchTeams = useCallback(async () => {
+    try {
+      const response = await teamApi.getAll();
+      setTeams(response.data);
+      setError('');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to load teams.'));
+    } finally {
+      setLoading(false);
     }
+  }, []);
 
-    useEffect(() => {
-        fetchTeams()
-    }, [])
-    return { teams, loading, refetch: fetchTeams }
+  useEffect(() => {
+    fetchTeams();
+  }, [fetchTeams]);
+
+  return { teams, loading, error, refetch: fetchTeams };
 }

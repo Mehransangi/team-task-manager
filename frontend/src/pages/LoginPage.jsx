@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AuthForm from '../components/AuthForm';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../utils/validators';
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
@@ -26,10 +28,10 @@ const LoginPage = () => {
     setError('');
 
     try {
-      await login(formData);
-      navigate('/dashboard');
+      const { reminders } = await login(formData);
+      navigate('/dashboard', { state: { reminders } });
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please check your email and password.');
+      setError(getErrorMessage(err, 'Login failed. Please check your email and password.'));
     } finally {
       setLoading(false);
     }
@@ -52,8 +54,9 @@ const LoginPage = () => {
       }
     >
       <div>
-        <label className="mb-2 block text-sm text-slate-300">Email</label>
+        <label htmlFor="login-email" className="mb-2 block text-sm text-slate-300">Email</label>
         <input
+          id="login-email"
           type="email"
           name="email"
           value={formData.email}
@@ -61,12 +64,14 @@ const LoginPage = () => {
           className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-violet-500"
           placeholder="you@example.com"
           autoComplete="email"
+          required
         />
       </div>
 
       <div>
-        <label className="mb-2 block text-sm text-slate-300">Password</label>
+        <label htmlFor="login-password" className="mb-2 block text-sm text-slate-300">Password</label>
         <input
+          id="login-password"
           type="password"
           name="password"
           value={formData.password}
@@ -74,8 +79,15 @@ const LoginPage = () => {
           className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-violet-500"
           placeholder="••••••••"
           autoComplete="current-password"
+          required
         />
       </div>
+
+      {location.state?.registered && !error && (
+        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+          Account created. Please log in.
+        </p>
+      )}
 
       {error && (
         <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">

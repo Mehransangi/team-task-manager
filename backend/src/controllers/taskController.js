@@ -1,147 +1,124 @@
-import pool from '../config/db.js'
+import { matchedData } from 'express-validator';
+import pool from '../config/db.js';
+import asyncHandler from '../utils/asyncHandler.js';
+import { buildTaskFilter } from '../utils/taskFilter.js';
+import { getMemberRole } from '../models/teamModel.js';
+import { TASK_SELECT, findTaskForUser } from '../models/taskModel.js';
 
-export const createTask = async (req, res) => {
-    const {
-        team_id,
-        title,
-        description,
-        status,
-        priority,
-        due_date,
-        assignee_id,
-    } = req.body
+const toIdOrNull = (value) => (value === '' || value === null || value === undefined ? null : Number(value));
+const toTextOrNull = (value) => (value === '' || value === null || value === undefined ? null : value);
 
-    const normalizedTeamId = Number(team_id)
-    const normalizedTitle = typeof title === 'string' ? title.trim() : ''
-    const normalizedDescription = typeof description === 'string' ? description.trim() : ''
-    const normalizedStatus = status && String(status).trim() ? String(status).trim() : 'todo'
-    const normalizedPriority = priority && String(priority).trim() ? String(priority).trim() : 'medium'
-    const normalizedDueDate = due_date && String(due_date).trim() !== '' ? String(due_date).trim() : null
+export const createTask = asyncHandler(async (req, res) => {
+  const { team_id: teamId, title, description, status, priority, due_date: dueDate } = req.body;
+  const assigneeId = toIdOrNull(req.body.assignee_id);
 
-    if (!normalizedTeamId || !normalizedTitle) {
-        return res.status(400).json({ message: 'Team and task title are required.' })
+  if (!(await getMemberRole(teamId, req.user.id))) {
+    return res.status(403).json({ message: 'You can only create tasks for teams you belong to.' });
+  }
+
+  if (assigneeId && !(await getMemberRole(teamId, assigneeId))) {
+    return res.status(400).json({ message: 'The assignee must be a member of the team.' });
+  }
+
+  const { rows } = await pool.query(
+    `INSERT INTO tasks (team_id, title, description, status, priority, due_date, assignee_id, created_by)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING id`,
+    [
+      teamId,
+      title,
+      toTextOrNull(description),
+      status || 'todo',
+      priority || 'medium',
+      toTextOrNull(dueDate),
+      assigneeId,
+      req.user.id,
+    ]
+  );
+
+  return res.status(201).json(await findTaskForUser(rows[0].id, req.user.id));
+});
+
+export const getTasks = asyncHandler(async (req, res) => {
+  const filters = matchedData(req, { locations: ['query'] });
+  const { where, params } = buildTaskFilter(filters);
+
+  const { rows } = await pool.query(
+    `${TASK_SELECT}
+     ${where}
+     ORDER BY t.created_at DESC, t.id DESC`,
+    [req.user.id, ...params]
+  );
+
+  return res.json(rows);
+});
+
+export const getTaskById = asyncHandler(async (req, res) => {
+  const task = await findTaskForUser(req.params.id, req.user.id);
+
+  if (!task) {
+    return res.status(404).json({ message: 'Task not found' });
+  }
+  return res.json(task);
+});
+
+export const updateTask = asyncHandler(async (req, res) => {
+  const taskId = Number(req.params.id);
+  const task = await findTaskForUser(taskId, req.user.id);
+
+  if (!task) {
+    return res.status(404).json({ message: 'Task not found' });
+  }
+  if (!task.can_edit) {
+    return res
+      .status(403)
+      .json({ message: 'Only the team owner, the task creator or the assignee can edit this task.' });
+  }
+
+  const body = req.body;
+  const has = (key) => Object.hasOwn(body, key);
+  const updates = {};
+
+  if (has('title')) updates.title = body.title;
+  if (has('description')) updates.description = toTextOrNull(body.description);
+  if (has('status') && body.status) updates.status = body.status;
+  if (has('priority') && body.priority) updates.priority = body.priority;
+  if (has('due_date')) updates.due_date = toTextOrNull(body.due_date);
+
+  if (has('assignee_id')) {
+    const assigneeId = toIdOrNull(body.assignee_id);
+    if (assigneeId && !(await getMemberRole(task.team_id, assigneeId))) {
+      return res.status(400).json({ message: 'The assignee must be a member of the team.' });
     }
+    updates.assignee_id = assigneeId;
+  }
 
-    try {
-        const membershipCheck = await pool.query(
-            `SELECT 1
-            FROM team_members
-            WHERE team_id = $1 AND user_id = $2
-            LIMIT 1`,
-            [normalizedTeamId, req.user.id]
-        )
+  const columns = Object.keys(updates);
+  if (columns.length === 0) {
+    return res.json(task);
+  }
 
-        if (membershipCheck.rows.length === 0) {
-            return res.status(403).json({ message: 'You can only create tasks for teams you belong to.' })
-        }
+  const setClause = columns.map((column, index) => `${column} = $${index + 1}`).join(', ');
 
-        const result = await pool.query(
-            `INSERT INTO tasks (team_id, title, description, status, priority, due_date, assignee_id, created_by)
-            VALUES ( $1, $2, $3, $4, $5, $6, $7, $8 )
-            RETURNING *`,
-            [
-                normalizedTeamId,
-                normalizedTitle,
-                normalizedDescription || null,
-                normalizedStatus,
-                normalizedPriority,
-                normalizedDueDate,
-                assignee_id || null,
-                req.user.id
-            ]
-        )
-        return res.status(201).json(result.rows[0])
-    } catch (error) {
-        res.status(500).json({ message: error.message })
-    }
-}
+  await pool.query(
+    `UPDATE tasks SET ${setClause}, updated_at = NOW() WHERE id = $${columns.length + 1}`,
+    [...columns.map((column) => updates[column]), taskId]
+  );
 
-export const getTasks = async (req, res) => {
-    try {
-        const result = await pool.query(
-            `SELECT *
-            FROM tasks
-            WHERE (
-                team_id IN (SELECT team_id FROM team_members WHERE user_id = $1)
-                OR created_by = $1
-            )
-            ORDER BY created_at DESC`,
-            [req.user.id]
-        )
+  return res.json(await findTaskForUser(taskId, req.user.id));
+});
 
-        return res.json(result.rows)
-    } catch (error) {
-        res.status(500).json({ message: error.message })
-    }
-}
+export const deleteTask = asyncHandler(async (req, res) => {
+  const taskId = Number(req.params.id);
+  const task = await findTaskForUser(taskId, req.user.id);
 
-export const getTaskById = async (req, res) => {
-    try {
-        const result = await pool.query(
-            `SELECT *
-            FROM tasks
-            WHERE id = $1 AND (
-                team_id IN (SELECT team_id FROM team_members WHERE user_id = $2)
-                OR created_by = $2
-            )`, [req.params.id, req.user.id]
-        )
+  if (!task) {
+    return res.status(404).json({ message: 'Task not found' });
+  }
+  if (!task.can_delete) {
+    return res.status(403).json({ message: 'Only the team owner or the task creator can delete this task.' });
+  }
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Task not found' })
-        }
-
-        return res.json(result.rows[0])
-    } catch (error) {
-        res.status(500).json({ message: error.message })
-    }
-}
-
-export const updateTask = async (req, res) => {
-    const { title, description, status, priority, due_date, assignee_id } = req.body
-    const normalizedTitle = typeof title === 'string' ? title.trim() : title
-    const normalizedDescription = typeof description === 'string' ? description.trim() : description
-    const normalizedStatus = status && String(status).trim() ? String(status).trim() : undefined
-    const normalizedPriority = priority && String(priority).trim() ? String(priority).trim() : undefined
-    const normalizedDueDate = due_date && String(due_date).trim() !== '' ? String(due_date).trim() : null
-
-    try {
-        const result = await pool.query(
-            `UPDATE tasks
-            SET title = COALESCE($1, title),
-                description = COALESCE($2, description),
-                status = COALESCE($3, status),
-                priority = COALESCE($4, priority),
-                due_date = $5,
-                assignee_id = COALESCE($6, assignee_id),
-                updated_at = NOW()
-            WHERE id = $7
-            RETURNING *`,
-            [normalizedTitle, normalizedDescription, normalizedStatus, normalizedPriority, normalizedDueDate, assignee_id || null, req.params.id]
-        )
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Task not found' })
-        }
-        return res.json(result.rows[0])
-    } catch (error) {
-        return res.status(500).json({ message: error.message })
-    }
-}
-
-export const deleteTask = async (req,res) => {
-    try {
-        const result = await pool.query(
-            `DELETE FROM tasks
-            WHERE id = $1
-            RETURNING *`,[req.params.id]
-        )
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Task not found' })
-        }
-
-        return res.json({ message: 'Task deleted successfully'})
-    } catch (error) {
-        return res.status(500).json({ message: error.message })
-    }
-}
+  await pool.query('DELETE FROM tasks WHERE id = $1', [taskId]);
+  return res.json({ message: 'Task deleted successfully' });
+});

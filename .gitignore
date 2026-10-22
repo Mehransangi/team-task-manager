@@ -1,7 +1,11 @@
 node_modules/
+dist/
 cookies.txt
 .env
 .env.local
 .env.*.local
 **/.env
 **/.env.local
+!**/.env.example
+.DS_Store
+*.log

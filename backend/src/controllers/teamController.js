@@ -1,189 +1,147 @@
-import pool from '../config/db.js'
+import pool from '../config/db.js';
+import asyncHandler from '../utils/asyncHandler.js';
+import { TEAM_SELECT, getMemberRole } from '../models/teamModel.js';
 
-const isTeamOwner = async (userId, teamId) => {
-    const result = await pool.query(
-        `SELECT 1
-        FROM team_members
-        WHERE team_id = $1 AND user_id = $2 AND role = 'owner'`,
-        [teamId, userId]
-    )
+const findTeamForUser = async (teamId, userId) => {
+  const { rows } = await pool.query(`${TEAM_SELECT} WHERE t.id = $2`, [userId, teamId]);
+  return rows[0] ?? null;
+};
 
-    return result.rows.length > 0
-}
+const requireOwner = async (req, res, teamId) => {
+  const role = await getMemberRole(teamId, req.user.id);
 
-export const createTeam = async (req, res) => {
-    const { name, description } = req.body
-    try {
-        const result = await pool.query(
-            `INSERT INTO teams (name, description, created_by)
-            VALUES ($1, $2, $3)
-            RETURNING *`,
-            [name, description, req.user.id]
-        )
+  if (!role) {
+    res.status(404).json({ message: 'Team not found' });
+    return false;
+  }
+  if (role !== 'owner') {
+    res.status(403).json({ message: 'Only the team owner can do this' });
+    return false;
+  }
+  return true;
+};
 
-        const team = result.rows[0]
+export const createTeam = asyncHandler(async (req, res) => {
+  const { name, description } = req.body;
+  const client = await pool.connect();
 
-        await pool.query(
-            `INSERT INTO team_members (team_id, user_id, role)
-            VALUES ($1, $2, 'owner')`,
-            [team.id, req.user.id]
-        )
-        res.status(201).json(team)
-    } catch (error) {
-        res.status(500).json({ message: error.message })
-    }
-}
+  try {
+    await client.query('BEGIN');
 
-export const getMyTeams = async (req, res) => {
-    try {
-        const result = await pool.query(
-            `SELECT t.*, tm.role AS user_role
-            FROM teams t
-            JOIN team_members tm ON tm.team_id = t.id
-            WHERE tm.user_id = $1
-            ORDER BY t.created_at DESC`,
-            [req.user.id]
-        )
-        res.json(result.rows)
-    } catch (error) {
-        res.status(500).json({ message: error.message })
-    }
-}
+    const { rows } = await client.query(
+      `INSERT INTO teams (name, description, created_by)
+       VALUES ($1, $2, $3)
+       RETURNING id`,
+      [name, description || null, req.user.id]
+    );
 
-export const getTeamById = async (req, res) => {
-    try {
-        const result = await pool.query(
-            `SELECT t.*, tm.role,
-                COALESCE(
-                    json_agg(
-                        json_build_object(
-                            'id', u.id,
-                            'name', u.name,
-                            'email', u.email,
-                            'role', tmb.role
-                        )
-                    ) FILTER (WHERE u.id IS NOT NULL),
-                    '[]'::json
-                ) AS members
-            FROM teams t
-            JOIN team_members tm ON tm.team_id = t.id
-            LEFT JOIN team_members tmb ON tmb.team_id = t.id
-            LEFT JOIN users u ON u.id = tmb.user_id
-            WHERE t.id = $1 AND tm.user_id = $2
-            GROUP BY t.id, tm.role`,
-            [req.params.id, req.user.id]
-        )
+    await client.query(
+      `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'owner')`,
+      [rows[0].id, req.user.id]
+    );
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Team not found' })
-        }
+    await client.query('COMMIT');
 
-        const team = result.rows[0]
-        team.members = team.members || []
-        return res.json(team)
-    } catch (error) {
-        res.status(500).json({ message: error.message })
-    }
-}
+    return res.status(201).json(await findTeamForUser(rows[0].id, req.user.id));
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+});
 
-export const updateTeam = async (req, res) => {
-    const { name, description } = req.body
+export const getMyTeams = asyncHandler(async (req, res) => {
+  const { rows } = await pool.query(`${TEAM_SELECT} ORDER BY t.created_at DESC`, [req.user.id]);
+  res.json(rows);
+});
 
-    try {
-        const allowed = await isTeamOwner(req.user.id, req.params.id)
-        if (!allowed) {
-            return res.status(403).json({ message: 'Only the team owner can update this team' })
-        }
+export const getTeamById = asyncHandler(async (req, res) => {
+  const team = await findTeamForUser(req.params.id, req.user.id);
 
-        const result = await pool.query(
-            `UPDATE teams
-            SET name = COALESCE($1, name),
-                description = COALESCE($2, description)
-            WHERE id = $3
-            RETURNING *`,
-            [name, description, req.params.id]
-        )
+  if (!team) {
+    return res.status(404).json({ message: 'Team not found' });
+  }
+  return res.json(team);
+});
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Team not found' })
-        }
+export const updateTeam = asyncHandler(async (req, res) => {
+  const teamId = Number(req.params.id);
+  if (!(await requireOwner(req, res, teamId))) return undefined;
 
-        return res.json(result.rows[0])
-    } catch (error) {
-        res.status(500).json({ message: error.message })
-    }
-}
+  const { name, description } = req.body;
+  const hasDescription = Object.hasOwn(req.body, 'description');
 
-export const deleteTeam = async (req, res) => {
-    try {
-        const allowed = await isTeamOwner(req.user.id, req.params.id)
-        if (!allowed) {
-            return res.status(403).json({ message: 'Only the team owner can delete this team' })
-        }
+  await pool.query(
+    `UPDATE teams
+     SET name = COALESCE($1, name),
+         description = CASE WHEN $2::boolean THEN $3 ELSE description END
+     WHERE id = $4`,
+    [name ?? null, hasDescription, description || null, teamId]
+  );
 
-        const result = await pool.query(
-            `DELETE FROM teams
-            WHERE id = $1
-            RETURNING *`,
-            [req.params.id]
-        )
+  return res.json(await findTeamForUser(teamId, req.user.id));
+});
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: 'Team not found' })
-        }
+export const deleteTeam = asyncHandler(async (req, res) => {
+  const teamId = Number(req.params.id);
+  if (!(await requireOwner(req, res, teamId))) return undefined;
 
-        return res.json({ message: 'Team deleted successfully' })
-    } catch (error) {
-        res.status(500).json({ message: error.message })
-    }
-}
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM tasks WHERE team_id = $1', [teamId]);
+    await client.query('DELETE FROM team_invites WHERE team_id = $1', [teamId]);
+    await client.query('DELETE FROM team_members WHERE team_id = $1', [teamId]);
+    await client.query('DELETE FROM teams WHERE id = $1', [teamId]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 
-export const addTeamMember = async (req, res) => {
-    const { email, role } = req.body
+  return res.json({ message: 'Team deleted successfully' });
+});
 
-    if (!email) {
-        return res.status(400).json({ message: 'Email is required' })
-    }
+export const addTeamMember = asyncHandler(async (req, res) => {
+  const teamId = Number(req.params.id);
+  if (!(await requireOwner(req, res, teamId))) return undefined;
 
-    try {
-        const allowed = await isTeamOwner(req.user.id, req.params.id)
-        if (!allowed) {
-            return res.status(403).json({ message: 'Only the team owner can add members' })
-        }
+  const { email } = req.body;
 
-        const userResult = await pool.query(
-            `SELECT id, name, email FROM users WHERE email = $1`,
-            [email]
-        )
+  const userResult = await pool.query('SELECT id, name, email FROM users WHERE email = $1', [email]);
 
-        if (userResult.rows.length === 0) {
-            return res.status(202).json({
-                message: `Invitation queued for ${email} (stubbed email invite; SMTP not configured).`,
-                invitedEmail: email,
-                pending: true,
-            })
-        }
+  if (userResult.rows.length === 0) {
+    await pool.query(
+      `INSERT INTO team_invites (team_id, email, invited_by)
+       SELECT $1, $2, $3
+       WHERE NOT EXISTS (SELECT 1 FROM team_invites WHERE team_id = $1 AND email = $2)`,
+      [teamId, email, req.user.id]
+    );
+    console.log(`[invite stub] Would email ${email} an invitation to join team ${teamId}`);
 
-        const memberUser = userResult.rows[0]
+    return res.status(202).json({
+      message: `${email} has no account yet. An invitation is pending and they will join when they register (email sending is stubbed).`,
+      invitedEmail: email,
+      pending: true,
+    });
+  }
 
-        const existing = await pool.query(
-            `SELECT 1 FROM team_members WHERE team_id = $1 AND user_id = $2 LIMIT 1`,
-            [req.params.id, memberUser.id]
-        )
+  const member = userResult.rows[0];
 
-        if (existing.rows.length > 0) {
-            return res.status(409).json({ message: 'Member already added to this team' })
-        }
+  if (await getMemberRole(teamId, member.id)) {
+    return res.status(409).json({ message: 'Member already added to this team' });
+  }
 
-        const result = await pool.query(
-            `INSERT INTO team_members (team_id, user_id, role)
-            VALUES ($1, $2, $3)
-            RETURNING team_id, user_id, role`,
-            [req.params.id, memberUser.id, role || 'member']
-        )
+  await pool.query(
+    `INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'member')`,
+    [teamId, member.id]
+  );
 
-        return res.status(201).json(result.rows[0])
-    } catch (error) {
-        return res.status(500).json({ message: error.message })
-    }
-}
+  return res.status(201).json({
+    message: `${member.name} was added to the team.`,
+    member: { ...member, role: 'member' },
+  });
+});

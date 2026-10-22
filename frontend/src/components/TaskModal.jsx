@@ -1,4 +1,10 @@
+import { useEffect } from 'react';
+import Alert from './Alert';
 import LoadingSpinner from './LoadingSpinner';
+
+const fieldClass =
+  'w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-violet-500 disabled:opacity-60';
+const labelClass = 'mb-1.5 block text-sm text-slate-300';
 
 const TaskModal = ({
   isOpen,
@@ -7,24 +13,47 @@ const TaskModal = ({
   formData,
   setFormData,
   teams,
-  title = 'Create task',
-  submitLabel = 'Save task',
+  isEditing = false,
   isSubmitting = false,
+  error = '',
 }) => {
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handleKey = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  const handleChange = (e) => {
+  const selectedTeam = teams.find((team) => String(team.id) === String(formData.team_id));
+  const members = selectedTeam?.members ?? [];
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
+      ...(name === 'team_id' ? { assignee_id: '' } : {}),
     }));
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-6">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="task-modal-title"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/80 px-4 py-6 sm:items-center"
+    >
       <div className="w-full max-w-xl rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl sm:p-6">
         <div className="mb-5 flex items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold text-white">{title}</h2>
+          <h2 id="task-modal-title" className="text-xl font-semibold text-white">
+            {isEditing ? 'Edit task' : 'Create task'}
+          </h2>
           <button
             type="button"
             onClick={onClose}
@@ -35,74 +64,119 @@ const TaskModal = ({
           </button>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <select
-            name="team_id"
-            value={formData.team_id}
-            onChange={handleChange}
-            className="select-with-icon w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-violet-500"
-          >
-            <option value="">Select team</option>
-            {teams.map((team) => (
-              <option key={team.id} value={team.id}>
-                {team.name}
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="text"
-            name="title"
-            value={formData.title}
-            onChange={handleChange}
-            placeholder="Task title"
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-violet-500"
-          />
-
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            placeholder="Task description"
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-violet-500"
-          />
-
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={onSubmit} className="space-y-4" noValidate>
+          <div>
+            <label htmlFor="task-team" className={labelClass}>Team</label>
             <select
-              name="status"
-              value={formData.status}
+              id="task-team"
+              name="team_id"
+              value={formData.team_id}
               onChange={handleChange}
-              className="select-with-icon rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-violet-500"
+              disabled={isEditing}
+              className={`select-with-icon ${fieldClass}`}
             >
-              <option value="todo">Todo</option>
-              <option value="in_progress">In Progress</option>
-              <option value="done">Done</option>
-            </select>
-
-            <select
-              name="priority"
-              value={formData.priority}
-              onChange={handleChange}
-              className="select-with-icon rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-violet-500"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
+              <option value="">Select team</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
             </select>
           </div>
 
-          <div className="input-with-icon">
+          <div>
+            <label htmlFor="task-title" className={labelClass}>Title</label>
             <input
-              type="date"
-              name="due_date"
-              value={formData.due_date}
+              id="task-title"
+              type="text"
+              name="title"
+              value={formData.title}
               onChange={handleChange}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-violet-500"
+              placeholder="What needs to be done?"
+              maxLength={200}
+              autoFocus
+              className={fieldClass}
             />
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
-              <path d="M7 2.75v2.5M17 2.75v2.5M3.75 8.25h16.5M5.5 5.5h13a1.75 1.75 0 0 1 1.75 1.75v10.5A1.75 1.75 0 0 1 18.5 19.5h-13A1.75 1.75 0 0 1 3.75 17.75V7.25A1.75 1.75 0 0 1 5.5 5.5Z" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
           </div>
+
+          <div>
+            <label htmlFor="task-description" className={labelClass}>Description</label>
+            <textarea
+              id="task-description"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              placeholder="Add more detail (optional)"
+              rows={3}
+              maxLength={2000}
+              className={fieldClass}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="task-assignee" className={labelClass}>Assignee</label>
+            <select
+              id="task-assignee"
+              name="assignee_id"
+              value={formData.assignee_id}
+              onChange={handleChange}
+              disabled={!selectedTeam}
+              className={`select-with-icon ${fieldClass}`}
+            >
+              <option value="">{selectedTeam ? 'Unassigned' : 'Select a team first'}</option>
+              {members.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.name} ({member.email})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label htmlFor="task-status" className={labelClass}>Status</label>
+              <select
+                id="task-status"
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className={`select-with-icon ${fieldClass}`}
+              >
+                <option value="todo">To do</option>
+                <option value="in_progress">In progress</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="task-priority" className={labelClass}>Priority</label>
+              <select
+                id="task-priority"
+                name="priority"
+                value={formData.priority}
+                onChange={handleChange}
+                className={`select-with-icon ${fieldClass}`}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="task-due" className={labelClass}>Due date</label>
+              <input
+                id="task-due"
+                type="date"
+                name="due_date"
+                value={formData.due_date}
+                onChange={handleChange}
+                className={`${fieldClass} [color-scheme:dark]`}
+              />
+            </div>
+          </div>
+
+          <Alert type="error">{error}</Alert>
 
           <div className="flex justify-end gap-3 pt-2">
             <button
@@ -123,8 +197,10 @@ const TaskModal = ({
                   <LoadingSpinner size="xs" />
                   Saving...
                 </span>
+              ) : isEditing ? (
+                'Update task'
               ) : (
-                submitLabel
+                'Save task'
               )}
             </button>
           </div>

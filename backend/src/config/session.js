@@ -1,25 +1,35 @@
-import session from "express-session";
-import pgSession from 'connect-pg-simple'
-import pool from './db.js'
+import session from 'express-session';
+import connectPgSimple from 'connect-pg-simple';
+import pool from './db.js';
+import env from './env.js';
 
 
-const PostgresStore = pgSession(session)
+const buildStore = () => {
+  if (env.sessionStore === 'memory') {
+    if (env.isProduction) {
+      console.warn('WARNING: using the in-memory session store in production.');
+    }
+    return undefined;
+  }
 
-const isProduction = process.env.NODE_ENV === 'production'
+  const PostgresStore = connectPgSimple(session);
+  return new PostgresStore({
+    pool,
+    tableName: 'session',
+    createTableIfMissing: true,
+  });
+};
 
 export default session({
-    store: new PostgresStore({
-        pool,
-        tableName: 'session',
-        createTableIfMissing: true
-    }),
-    secret: process.env.SESSION_SECRET || 'sadklfwioerhf23kefjsdklfj234wdsflajhdsf4',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        httpOnly: true,
-        secure: false,
-        sameSite: 'lax',
-        maxAge: 1000 * 60 * 60 * 7,
-    }
-})
+  name: env.sessionCookieName,
+  store: buildStore(),
+  secret: env.sessionSecret,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: env.isProduction,
+    sameSite: env.cookieSameSite,
+    maxAge: env.sessionMaxAgeMs,
+  },
+});

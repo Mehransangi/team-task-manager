@@ -1,36 +1,34 @@
-import { Link } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+
+const navLinkClass = ({ isActive }) =>
+  `rounded-lg px-3 py-1.5 transition ${
+    isActive ? 'bg-violet-500/15 text-white' : 'text-slate-300 hover:text-white'
+  }`;
 
 const Navbar = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogout = async () => {
     await logout();
-    window.location.href = '/login';
+    navigate('/login', { replace: true });
   };
 
   return (
     <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur">
-      <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-        <div>
-          <Link to="/dashboard" className="text-xl font-bold text-white">
-            Team Task Manager
-          </Link>
-        </div>
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 py-4 sm:px-6">
+        <Link to="/dashboard" className="text-xl font-bold text-white">
+          Team Task Manager
+        </Link>
 
-        <nav className="flex items-center gap-4 text-sm">
-          <Link to="/dashboard" className="text-slate-300 hover:text-white">
-            Dashboard
-          </Link>
-          <Link to="/teams" className="text-slate-300 hover:text-white">
-            Teams
-          </Link>
-          <Link to="/tasks" className="text-slate-300 hover:text-white">
-            Tasks
-          </Link>
+        <nav className="flex flex-wrap items-center gap-2 text-sm">
+          <NavLink to="/dashboard" className={navLinkClass}>Dashboard</NavLink>
+          <NavLink to="/teams" className={navLinkClass}>Teams</NavLink>
+          <NavLink to="/tasks" className={navLinkClass}>Tasks</NavLink>
 
-          <div className="flex items-center gap-3 ml-4">
-            <span className="text-slate-300">{user?.name || 'User'}</span>
+          <div className="ml-2 flex items-center gap-3">
+            <span className="hidden text-slate-300 sm:inline">{user?.name || 'User'}</span>
             <button
               type="button"
               onClick={handleLogout}
