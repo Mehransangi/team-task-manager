@@ -1,4 +1,4 @@
-const TaskCard = ({ task }) => {
+const TaskCard = ({ task, onEdit, onDelete }) => {
   const statusColors = {
     todo: 'border-sky-500/30 bg-sky-500/10 text-sky-300',
     in_progress: 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300',
@@ -28,6 +28,29 @@ const TaskCard = ({ task }) => {
         {task.priority && <span>Priority: {task.priority}</span>}
         {task.due_date && <span>Due: {task.due_date}</span>}
       </div>
+
+      {(onEdit || onDelete) && (
+        <div className="mt-5 flex items-center gap-2">
+          {onEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(task)}
+              className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-medium text-violet-200 transition hover:bg-violet-500/20"
+            >
+              Edit
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(task.id)}
+              className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-200 transition hover:bg-red-500/20"
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

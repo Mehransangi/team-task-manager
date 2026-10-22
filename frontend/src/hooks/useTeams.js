@@ -19,5 +19,5 @@ export function useTeams() {
     useEffect(() => {
         fetchTeams()
     }, [])
-    return { teams, loading, reflect: fetchTeams }
+    return { teams, loading, refetch: fetchTeams }
 }
